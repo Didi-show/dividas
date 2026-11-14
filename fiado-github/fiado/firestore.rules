@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.platformAdmin == true; }
+    function mpath(est) { return /databases/$(db)/documents/establishments/$(est)/members/$(request.auth.uid); }
+    function member(est) { return signedIn() && exists(mpath(est)); }
+    function role(est) { return get(mpath(est)).data.role; }
+    function active(est) { return get(/databases/$(db)/documents/establishments/$(est)).data.licenseStatus == 'active'; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if signedIn() && request.auth.uid == uid && !('isPlatformAdmin' in request.resource.data);
+    }
+    match /establishments/{est} {
+      allow read: if member(est) || isAdmin();
+      allow write: if false;
+      match /members/{uid} { allow read: if member(est) || isAdmin(); allow write: if false; }
+      match /customers/{id} {
+        allow read: if member(est) && active(est);
+        allow create, update: if member(est) && active(est)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['saldoDevedorCents']);
+        allow delete: if member(est) && role(est) in ['owner','manager'];
+      }
+      match /products/{id} { allow read, write: if member(est) && active(est); }
+      match /sales/{id=**} { allow read: if member(est) && active(est); allow write: if false; }
+      match /payments/{id} { allow read: if member(est) && active(est); allow write: if false; }
+      match /auditLogs/{id} { allow read: if member(est) && role(est) in ['owner','manager']; allow write: if false; }
+    }
+    match /charges/{id} { allow read: if signedIn() && (isAdmin() || resource.data.ownerUid == request.auth.uid); allow write: if false; }
+    match /licenses/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /webhookEvents/{id} { allow read, write: if false; }
+    match /platformConfig/{d} { allow read: if isAdmin(); allow write: if false; }
+  }
+}
