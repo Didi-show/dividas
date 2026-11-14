@@ -1,7 +1,0 @@
-{
-  "name": "fiado-functions", "private": true, "main": "lib/src/index.js",
-  "engines": { "node": "20" },
-  "scripts": { "build": "tsc", "test": "tsc && node --test lib/test/*.test.js", "serve": "npm run build && firebase emulators:start" },
-  "dependencies": { "firebase-admin": "^12.6.0", "firebase-functions": "^6.0.1" },
-  "devDependencies": { "typescript": "^5.5.0", "@types/node": "^20.14.0" }
-}
